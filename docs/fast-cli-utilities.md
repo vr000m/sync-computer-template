@@ -143,7 +143,7 @@ btop                    # launch system monitor
 
 All utilities are in the Brewfile:
 ```bash
-cd ~/code/vr000m/sync-computer
+cd ~/Code/sync-computer
 brew bundle --file Brewfile
 ```
 

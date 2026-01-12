@@ -51,7 +51,8 @@ declare -a DOTFILES_SOURCES_LINUX=(
 SECRET_DIRS=(
   "$HOME/.ssh"
   "$HOME/.gnupg"
-  "$HOME/.config/pipecatcloud"
+  # Add your own secret directories here, e.g.:
+  # "$HOME/.config/some-app-with-tokens"
 )
 
 usage() {
