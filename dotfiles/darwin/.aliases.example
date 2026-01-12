@@ -1,0 +1,35 @@
+# Custom aliases for macOS
+# Copy to ~/.aliases and customize
+
+# Navigation
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+
+# ls improvements
+alias ll='ls -lah'
+alias la='ls -A'
+alias lt='ls -ltr'
+
+# Git shortcuts
+alias gs='git status'
+alias ga='git add'
+alias gc='git commit'
+alias gp='git push'
+alias gl='git log --oneline -20'
+alias gd='git diff'
+alias gb='git branch'
+alias gco='git checkout'
+
+# Safety
+alias rm='rm -i'
+alias cp='cp -i'
+alias mv='mv -i'
+
+# Quick directory access (customize these)
+# alias code='cd ~/Code'
+# alias docs='cd ~/Documents'
+
+# Quick edits
+alias zshrc='${EDITOR:-nano} ~/.zshrc && source ~/.zshrc'
+alias aliases='${EDITOR:-nano} ~/.aliases && source ~/.aliases'

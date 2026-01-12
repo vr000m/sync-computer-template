@@ -1,0 +1,26 @@
+[user]
+	name = Your Name
+	email = your-email@example.com
+	signingkey = YOUR_GPG_KEY_ID
+[gpg]
+	program = /opt/homebrew/bin/gpg
+[commit]
+	gpgsign = true
+[init]
+	defaultBranch = main
+[core]
+	excludesfile = ~/.config/git/ignore
+	editor = nano
+[alias]
+	st = status
+	co = checkout
+	br = branch
+	ci = commit
+	lg = log --oneline --graph --decorate -20
+	last = log -1 HEAD
+	unstage = reset HEAD --
+	undo = reset --soft HEAD~1
+[pull]
+	rebase = false
+[push]
+	default = current

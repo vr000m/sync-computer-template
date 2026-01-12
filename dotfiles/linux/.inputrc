@@ -1,0 +1,30 @@
+# ~/.inputrc - User readline configuration
+
+# Include system defaults
+$include /etc/inputrc
+
+# Case-insensitive completion
+set completion-ignore-case on
+
+# Show all matches on single tab
+set show-all-if-ambiguous on
+
+# Append / to directories, @ to symlinks
+set visible-stats on
+
+# Color files by type during completion
+set colored-stats on
+
+# Color the common prefix in completions
+set colored-completion-prefix on
+
+# Don't expand ~ to full home path during completion
+set expand-tilde off
+
+# Up/down arrows search history based on typed prefix
+"\e[A": history-search-backward
+"\e[B": history-search-forward
+
+# Ctrl+Left/Right move by word
+"\e[1;5C": forward-word
+"\e[1;5D": backward-word
