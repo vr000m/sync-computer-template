@@ -1,0 +1,37 @@
+# Aptfile - Curated packages for Raspberry Pi 5
+# Install with: xargs sudo apt install -y < Aptfile
+
+# Modern CLI tools
+fzf
+fd-find
+bat
+ripgrep
+htop
+
+# Development essentials
+build-essential
+git
+gh
+curl
+wget
+
+# Shell utilities
+bash-completion
+keychain
+
+# Editors
+nano
+vim
+
+# Terminal multiplexer
+tmux
+
+# Networking
+iw
+wireless-tools
+rfkill
+
+# Note: Tailscale is installed via its own script:
+# curl -fsSL https://tailscale.com/install.sh | sh
+
+# Add your packages below:
