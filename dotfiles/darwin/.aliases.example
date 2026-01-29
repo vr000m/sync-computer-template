@@ -1,5 +1,6 @@
 # Custom aliases for macOS
 # Copy to ~/.aliases and customize
+# Sourced from .zprofile
 
 # Navigation
 alias ..='cd ..'
@@ -26,10 +27,21 @@ alias rm='rm -i'
 alias cp='cp -i'
 alias mv='mv -i'
 
-# Quick directory access (customize these)
-# alias code='cd ~/Code'
+# Quick edit config files
+alias edzsh="vi ~/.zshrc"
+alias edohmyzsh="vi ~/.oh-my-zsh"
+alias edzprofile="vi ~/.zprofile"
+alias edalias="vi ~/.aliases"
+
+# Directory shortcuts (customize these)
+alias cdcode="cd $HOME/Code/"
 # alias docs='cd ~/Documents'
 
-# Quick edits
+# Utilities
+alias cathistory="cat -n ~/.zsh_history | sort -t ';' -uk2 | sort -nk1 | cut -f2-"
+alias reload="source ~/.zprofile && source ~/.zshrc"
+alias uvr="uv run"
+
+# Quick edits (alternative style)
 alias zshrc='${EDITOR:-nano} ~/.zshrc && source ~/.zshrc'
 alias aliases='${EDITOR:-nano} ~/.aliases && source ~/.aliases'

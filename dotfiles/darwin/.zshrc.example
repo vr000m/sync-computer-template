@@ -1,46 +1,137 @@
 # ~/.zshrc - Zsh configuration for macOS
 # Copy to ~/.zshrc and customize
 
-# Path to oh-my-zsh installation (if using)
+# For profiling add this to the TOP of your .zshrc
+# zmodload zsh/zprof
+
+# Add deno completions to search path
+if [[ ":$FPATH:" != *":$HOME/.zsh/completions:"* ]]; then export FPATH="$HOME/.zsh/completions:$FPATH"; fi
+
+# Path to your oh-my-zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
 
-# Theme (ignored if using Starship)
-ZSH_THEME="robbyrussell"
+# Set name of the theme to load
+# Disabled OMZ theme - Starship handles the prompt (saves ~20-30ms)
+ZSH_THEME=""
+# ZSH_THEME="robbyrussell"
+
+# History settings (optimized)
+HIST_STAMPS="yyyy-mm-dd"
+HISTFILE=~/.zsh_history
+HISTFILESIZE=100000
+HISTSIZE=200000
+SAVEHIST=500000
+setopt EXTENDED_HISTORY          # Write the history file in the ":start:elapsed;command" format.
+setopt SHARE_HISTORY             # Share history between all sessions.
+setopt HIST_EXPIRE_DUPS_FIRST    # Expire duplicate entries first when trimming history.
+setopt HIST_IGNORE_ALL_DUPS      # Delete old recorded entry if new entry is a duplicate.
+setopt HIST_FIND_NO_DUPS         # Do not display a line previously found.
+setopt HIST_IGNORE_SPACE         # Don't record an entry starting with a space.
+setopt HIST_SAVE_NO_DUPS         # Don't write duplicate entries in the history file.
+setopt HIST_REDUCE_BLANKS        # Remove superfluous blanks before recording entry.
+
+# Zsh extras (syntax highlighting + autosuggestions via Homebrew)
+# Use cached HOMEBREW_PREFIX for faster startup
+source "$HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+source "$HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
 
 # Plugins
 plugins=(
-    git
-    zsh-autosuggestions
-    zsh-syntax-highlighting
+   git
+   macos
+   ssh-agent
+   # commenting below because they are installed by brew
+   # zsh-autosuggestions
+   # zsh-syntax-highlighting  # Always last!
 )
 
-# Load oh-my-zsh (if installed)
-[ -f "$ZSH/oh-my-zsh.sh" ] && source "$ZSH/oh-my-zsh.sh"
+source $ZSH/oh-my-zsh.sh
 
-# History settings
-HISTSIZE=10000
-SAVEHIST=10000
-HISTFILE=~/.zsh_history
-setopt HIST_IGNORE_DUPS
-setopt HIST_IGNORE_SPACE
-setopt SHARE_HISTORY
+ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE="20"
+ZSH_AUTOSUGGEST_USE_ASYNC=1
 
-# Homebrew
-eval "$(/opt/homebrew/bin/brew shellenv)"
+# User configuration
+export LANG=en_US.UTF-8
 
-# Aliases
-[ -f ~/.aliases ] && source ~/.aliases
+# Aliases moved to ~/.aliases (sourced from .zprofile)
 
-# Local secrets (not tracked in git)
+# GPG agent setup (conditional launch to avoid redundant starts)
+# https://gist.github.com/phortuin/cf24b1cca3258720c71ad42977e1ba57
+export GPG_TTY=$(tty)
+pgrep -x gpg-agent >/dev/null || gpgconf --launch gpg-agent
+
+# Starship prompt (blazing fast)
+eval "$(starship init zsh)"
+
+# libpq is a PostgreSQL client library
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+
+# NVM with optimized loading (--no-use saves ~100ms on startup)
+export NVM_DIR="$HOME/.nvm"
+mkdir -p "$NVM_DIR"
+[ -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ] && source "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" --no-use
+[ -s "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm" ] && source "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
+
+# Deno
+. "$HOME/.deno/env"
+
+# Initialize zsh completions (consolidated - runs once for deno + docker)
+fpath=("$HOME/.docker/completions" $fpath)
+autoload -Uz compinit
+compinit
+
+# Useful functions
+
+# Remove the last command from history (useful after typos)
+forget() {
+  sed -i '' '$d' ~/.zsh_history
+  fc -R
+  echo "Last command forgotten"
+}
+
+# Remove commands matching a pattern from history
+forget_pattern() {
+  sed -i '' "/$1/d" ~/.zsh_history
+  fc -R
+  echo "Commands matching '$1' forgotten"
+}
+
+# Auto .nvmrc switching (optimized)
+autoload -U add-zsh-hook
+load-nvmrc() {
+  local nvmrc_path="$(nvm_find_nvmrc)"
+  if [ -n "$nvmrc_path" ]; then
+    local nvmrc_node_version=$(nvm version "$(cat "${nvmrc_path}")")
+    if [ "$nvmrc_node_version" = "N/A" ]; then
+      nvm install
+    elif [ "$nvmrc_node_version" != "$(nvm version)" ]; then
+      nvm use --silent
+    fi
+  fi
+}
+add-zsh-hook chpwd load-nvmrc
+load-nvmrc
+
+# Tool completions (uncomment as needed)
+# eval "$(codex completion zsh)"
+
+# uv (Python package manager)
+. $HOME/.local/bin/env
+eval "$(uv generate-shell-completion zsh)"
+
+# fzf keybindings (Ctrl+R for history, Ctrl+T for files)
+[ -f "$HOMEBREW_PREFIX/opt/fzf/shell/completion.zsh" ] && source "$HOMEBREW_PREFIX/opt/fzf/shell/completion.zsh"
+[ -f "$HOMEBREW_PREFIX/opt/fzf/shell/key-bindings.zsh" ] && source "$HOMEBREW_PREFIX/opt/fzf/shell/key-bindings.zsh"
+
+# bun completions
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
+# Local secrets/customizations (not tracked in git)
 [ -f ~/.zshrc.local ] && source ~/.zshrc.local
 
-# NVM (Node Version Manager)
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
-
-# Add local bin to PATH
-export PATH="$HOME/.local/bin:$PATH"
-
-# Initialize Starship prompt (must be at end)
-eval "$(starship init zsh)"
+# For profiling add this to the BOTTOM of your .zshrc
+# zprof
