@@ -24,6 +24,7 @@ declare -a DOTFILES_SOURCES_DARWIN=(
   "$HOME/.config/gh/config.yml"
   "$HOME/.config/trail/config.toml"
   # AI coding assistants
+  "$HOME/.claude/CLAUDE.md"
   "$HOME/.claude/settings.json"
   "$HOME/.claude/settings.local.json"
   "$HOME/.claude.json"
@@ -42,6 +43,7 @@ declare -a DOTFILES_SOURCES_LINUX=(
   "$HOME/.config/git/ignore"
   "$HOME/.config/starship.toml"
   # AI coding assistants
+  "$HOME/.claude/CLAUDE.md"
   "$HOME/.claude/settings.json"
   "$HOME/.claude/settings.local.json"
   "$HOME/.claude.json"
