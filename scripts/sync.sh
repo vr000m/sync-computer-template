@@ -5,6 +5,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DOTFILES_BASE="$ROOT/dotfiles"
 USB_STAGE="$ROOT/usb"
 
+# Secret patterns to strip from collected text files.
+# 1) Environment variable assignments (KEY=value)
+SECRET_ENV_RE='(OPENAI_API_KEY|ANTHROPIC_API_KEY|GEMINI_API_KEY|CLAUDE_API_KEY|HF_TOKEN|HUGGING_FACE_HUB_TOKEN|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN|AWS_ACCESS_KEY_ID|AZURE_CLIENT_SECRET|AZURE_TENANT_ID|GOOGLE_APPLICATION_CREDENTIALS|GOOGLE_API_KEY|CLOUDFLARE_API_TOKEN|SENDGRID_API_KEY|TWILIO_AUTH_TOKEN|STRIPE_SECRET_KEY|DATABASE_URL|REDIS_URL|MONGODB_URI|API_KEY|SECRET_KEY|AUTH_TOKEN|ACCESS_TOKEN|REFRESH_TOKEN|PASSWORD|PASSWD|PRIVATE_KEY)='
+# 2) Literal token prefixes
+SECRET_TOKEN_RE='(sk-ant-[a-zA-Z0-9_-]{20,}|sk-proj-[a-zA-Z0-9_-]{20,}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|ghs_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{20,}|glpat-[a-zA-Z0-9_-]{20,}|xoxb-[0-9]{10,}|xoxp-[0-9]{10,}|AKIA[0-9A-Z]{16}|hf_[a-zA-Z0-9]{20,})'
+# 3) Private key / certificate markers
+SECRET_BLOCK_RE='-----BEGIN .*(PRIVATE KEY|CERTIFICATE)-----'
+
 # Files that are safe to track in git.
 declare -a DOTFILES_SOURCES_COMMON=(
 )
@@ -127,15 +135,27 @@ usb_bucket_dir() {
 copy_sanitized() {
   local src="$1" dest="$2"
   mkdir -p "$(dirname "$dest")"
-  case "$src" in
-    "$HOME/.zshrc" | "$HOME/.zprofile" | "$HOME/.bashrc" | "$HOME/.bash_profile")
-      # Strip obvious API keys/secrets from shell init files.
-      grep -vE '(OPENAI_API_KEY|ANTHROPIC_API_KEY|GEMINI_API_KEY|CLAUDE_API_KEY|API_KEY|SECRET_KEY|AUTH_TOKEN|ACCESS_TOKEN)=' "$src" > "$dest"
-      ;;
-    *)
-      rsync -a "$src" "$dest"
-      ;;
-  esac
+
+  # Binary files: copy as-is.
+  if file --mime-encoding "$src" 2>/dev/null | grep -q binary; then
+    rsync -a "$src" "$dest"
+    return
+  fi
+
+  # Text files: strip lines matching secret patterns.
+  local before after
+  before="$(wc -l < "$src")"
+
+  { grep -vE -- "$SECRET_ENV_RE" "$src" || true; } \
+    | { grep -vE -- "$SECRET_TOKEN_RE" || true; } \
+    | { grep -vE -- "$SECRET_BLOCK_RE" || true; } \
+    > "$dest"
+
+  after="$(wc -l < "$dest")"
+  local stripped=$((before - after))
+  if [[ $stripped -gt 0 ]]; then
+    echo "  WARNING: Sanitized $stripped line(s) from $(basename "$src")" >&2
+  fi
 }
 
 collect_dotfiles() {
