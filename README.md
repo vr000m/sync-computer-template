@@ -6,7 +6,7 @@ A template for syncing dotfiles and terminal configuration across macOS and Linu
 
 - **Cross-platform:** Works on macOS (zsh) and Linux/RPi (bash)
 - **Platform-aware sync:** Automatically detects OS and syncs appropriate configs
-- **Secret sanitization:** Auto-strips API keys when collecting dotfiles
+- **Secret sanitization:** Auto-strips secrets from all text files during collect (env var assignments, token prefixes, private key markers)
 - **USB backup:** Secure backup of SSH/GPG keys to USB drive
 - **Modern CLI tools:** Includes Starship prompt, fzf, ripgrep, bat, fd
 
@@ -40,11 +40,13 @@ scripts/sync.sh apply
 │   ├── darwin/                 # macOS configs
 │   │   ├── .gitconfig.example
 │   │   ├── .zshrc.example
+│   │   ├── .claude/CLAUDE.md   # Claude Code global preferences
 │   │   └── .config/starship.toml
 │   └── linux/                  # Linux/RPi configs
 │       ├── .gitconfig.example
 │       ├── .bashrc.example
 │       ├── .bash_aliases
+│       ├── .claude/CLAUDE.md   # Claude Code global preferences
 │       └── .config/starship.toml
 ├── scripts/
 │   ├── sync.sh                 # Main sync script
