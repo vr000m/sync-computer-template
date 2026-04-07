@@ -14,6 +14,8 @@ SECRET_TOKEN_RE='(sk-ant-[a-zA-Z0-9_-]{20,}|sk-proj-[a-zA-Z0-9_-]{20,}|sk-[a-zA-
 SECRET_BLOCK_RE='-----BEGIN .*(PRIVATE KEY|CERTIFICATE)-----'
 
 # Files that are safe to track in git.
+# Common sources shared across platforms (currently empty, reserved for future use).
+# shellcheck disable=SC2034
 declare -a DOTFILES_SOURCES_COMMON=(
 )
 
@@ -35,7 +37,7 @@ declare -a DOTFILES_SOURCES_DARWIN=(
   "$HOME/.claude/CLAUDE.md"
   "$HOME/.claude/settings.json"
   "$HOME/.claude/settings.local.json"
-  "$HOME/.claude.json"
+  "$HOME/.claude/hooks/context-alert.sh"
   "$HOME/.codex/config.toml"
   "$HOME/.codex/rules/default.rules"
   "$HOME/.gemini/settings.json"
@@ -54,7 +56,7 @@ declare -a DOTFILES_SOURCES_LINUX=(
   "$HOME/.claude/CLAUDE.md"
   "$HOME/.claude/settings.json"
   "$HOME/.claude/settings.local.json"
-  "$HOME/.claude.json"
+  "$HOME/.claude/hooks/context-alert.sh"
 )
 
 # Secrets to stage for USB backup (not tracked in git).
@@ -65,16 +67,77 @@ SECRET_DIRS=(
   # "$HOME/.config/some-app-with-tokens"
 )
 
+# Category definitions for selective apply/collect
+# Files in each category
+declare -a CAT_SHELL=(
+  "$HOME/.zshrc"
+  "$HOME/.zprofile"
+  "$HOME/.profile"
+  "$HOME/.aliases"
+  "$HOME/.bashrc"
+  "$HOME/.bash_aliases"
+  "$HOME/.inputrc"
+)
+
+declare -a CAT_GIT=(
+  "$HOME/.gitconfig"
+  "$HOME/.config/git/ignore"
+)
+
+declare -a CAT_SECURITY=(
+  "$HOME/.ssh/config"
+  "$HOME/.gnupg/gpg.conf"
+  "$HOME/.gnupg/gpg-agent.conf"
+)
+
+declare -a CAT_CLAUDE_FILES=(
+  "$HOME/.claude/CLAUDE.md"
+  "$HOME/.claude/settings.json"
+  "$HOME/.claude/settings.local.json"
+  "$HOME/.claude/hooks/context-alert.sh"
+)
+
+declare -a CAT_CODEX=(
+  "$HOME/.codex/config.toml"
+  "$HOME/.codex/rules/default.rules"
+)
+
+declare -a CAT_GEMINI=(
+  "$HOME/.gemini/settings.json"
+)
+
+declare -a CAT_TOOLS=(
+  "$HOME/.config/starship.toml"
+  "$HOME/.config/zed/settings.json"
+  "$HOME/.config/gh/config.yml"
+  "$HOME/.config/trail/config.toml"
+)
+
+VALID_CATEGORIES="shell git security claude codex gemini tools"
+
 usage() {
   cat <<'EOF'
-Usage: scripts/sync.sh <command>
+Usage: scripts/sync.sh <command> [category]
 
 Commands:
-  collect      Copy dotfiles from $HOME into dotfiles/ (sanitizes common API keys).
-  apply        Copy dotfiles/ back into $HOME (backs up existing files).
-  stage-usb    Copy SSH/GPG secrets into usb/ staging (ignored by git).
-  push-usb     Sync usb/ staging to /Volumes/Samsung_T5/sync_computer (or auto-detect).
-  pull-usb     Restore SSH/GPG from /Volumes/Samsung_T5/sync_computer into $HOME (backs up existing).
+  collect [category]  Copy dotfiles from $HOME into dotfiles/ (sanitizes common API keys).
+  apply [category]    Copy dotfiles/ back into $HOME (backs up existing files).
+  stage-usb           Copy SSH/GPG secrets into usb/ staging (ignored by git).
+  push-usb            Sync usb/ staging to /Volumes/Samsung_T5/sync_computer (or auto-detect).
+  pull-usb            Restore SSH/GPG from /Volumes/Samsung_T5/sync_computer into $HOME (backs up existing).
+
+Categories (optional, omit for all):
+  shell      .zshrc, .zprofile, .profile, .aliases, .bashrc
+  git        .gitconfig, .config/git/ignore
+  security   .ssh/config, .gnupg/gpg.conf, .gnupg/gpg-agent.conf
+  claude     .claude/CLAUDE.md, .claude/settings.json, .claude/settings.local.json, .claude/hooks/
+  codex      .codex/config.toml, .codex/rules/default.rules
+  gemini     .gemini/settings.json
+  tools      starship.toml, zed/settings.json, gh/config.yml, trail/config.toml
+
+Examples:
+  scripts/sync.sh apply           # Apply everything
+  scripts/sync.sh collect claude  # Collect only claude configs
 
 Options:
   USB_TARGET=/path/to/dir  Override the USB target for push-usb.
@@ -92,7 +155,7 @@ ensure_rsync() {
 
 rel_path() {
   local src="$1"
-  echo "${src#$HOME/}"
+  echo "${src#"$HOME"/}"
 }
 
 detect_platform() {
@@ -158,52 +221,119 @@ copy_sanitized() {
   fi
 }
 
+# Get files for a specific category
+get_category_files() {
+  local category="$1"
+  case "$category" in
+    shell)    printf '%s\n' "${CAT_SHELL[@]}" ;;
+    git)      printf '%s\n' "${CAT_GIT[@]}" ;;
+    security) printf '%s\n' "${CAT_SECURITY[@]}" ;;
+    claude)   printf '%s\n' "${CAT_CLAUDE_FILES[@]}" ;;
+    codex)    printf '%s\n' "${CAT_CODEX[@]}" ;;
+    gemini)   printf '%s\n' "${CAT_GEMINI[@]}" ;;
+    tools)    printf '%s\n' "${CAT_TOOLS[@]}" ;;
+    *)        echo "Unknown category: $category" >&2; return 1 ;;
+  esac
+}
+
+# Check if a file is in a category
+file_in_category() {
+  local file="$1" category="$2"
+  local cat_file
+  while IFS= read -r cat_file; do
+    [[ "$file" == "$cat_file" ]] && return 0
+  done < <(get_category_files "$category" 2>/dev/null)
+  return 1
+}
+
 collect_dotfiles() {
   ensure_rsync
-  local platform
+  local platform category="${1:-}"
   platform="$(detect_platform)"
 
-  if [[ ${DOTFILES_SOURCES_COMMON+set} == set ]]; then
-    collect_list "common" "${DOTFILES_SOURCES_COMMON[@]}"
+  # Validate category if provided
+  if [[ -n "$category" ]] && ! echo "$VALID_CATEGORIES" | grep -qw "$category"; then
+    echo "Unknown category: $category" >&2
+    echo "Valid categories: $VALID_CATEGORIES" >&2
+    return 1
   fi
+
+  local -a files_to_collect=()
+
+  # Get platform-specific source lists
   case "$platform" in
     darwin)
-      if [[ ${DOTFILES_SOURCES_DARWIN+set} == set ]]; then
-        collect_list "darwin" "${DOTFILES_SOURCES_DARWIN[@]}"
-      fi
+      files_to_collect=("${DOTFILES_SOURCES_DARWIN[@]}")
       ;;
     linux)
-      if [[ ${DOTFILES_SOURCES_LINUX+set} == set ]]; then
-        collect_list "linux" "${DOTFILES_SOURCES_LINUX[@]}"
-      fi
+      files_to_collect=("${DOTFILES_SOURCES_LINUX[@]}")
       ;;
-    common) : ;;
-    *) : ;;
   esac
+
+  # Filter by category if specified
+  if [[ -n "$category" ]]; then
+    local -a filtered_files=()
+
+    for f in "${files_to_collect[@]:-}"; do
+      [[ -z "$f" ]] && continue
+      if file_in_category "$f" "$category"; then
+        filtered_files+=("$f")
+      fi
+    done
+
+    files_to_collect=()
+    [[ ${#filtered_files[@]} -gt 0 ]] && files_to_collect=("${filtered_files[@]}")
+  fi
+
+  # Collect files
+  if [[ ${#files_to_collect[@]} -gt 0 ]]; then
+    collect_list "$platform" "${files_to_collect[@]}"
+  fi
 }
 
 apply_dotfiles() {
   ensure_rsync
-  local platform
+  local platform category="${1:-}"
   platform="$(detect_platform)"
 
-  if [[ ${DOTFILES_SOURCES_COMMON+set} == set ]]; then
-    apply_list "common" "${DOTFILES_SOURCES_COMMON[@]}"
+  # Validate category if provided
+  if [[ -n "$category" ]] && ! echo "$VALID_CATEGORIES" | grep -qw "$category"; then
+    echo "Unknown category: $category" >&2
+    echo "Valid categories: $VALID_CATEGORIES" >&2
+    return 1
   fi
+
+  local -a files_to_apply=()
+
+  # Get platform-specific source lists
   case "$platform" in
     darwin)
-      if [[ ${DOTFILES_SOURCES_DARWIN+set} == set ]]; then
-        apply_list "darwin" "${DOTFILES_SOURCES_DARWIN[@]}"
-      fi
+      files_to_apply=("${DOTFILES_SOURCES_DARWIN[@]}")
       ;;
     linux)
-      if [[ ${DOTFILES_SOURCES_LINUX+set} == set ]]; then
-        apply_list "linux" "${DOTFILES_SOURCES_LINUX[@]}"
-      fi
+      files_to_apply=("${DOTFILES_SOURCES_LINUX[@]}")
       ;;
-    common) : ;;
-    *) : ;;
   esac
+
+  # Filter by category if specified
+  if [[ -n "$category" ]]; then
+    local -a filtered_files=()
+
+    for f in "${files_to_apply[@]:-}"; do
+      [[ -z "$f" ]] && continue
+      if file_in_category "$f" "$category"; then
+        filtered_files+=("$f")
+      fi
+    done
+
+    files_to_apply=()
+    [[ ${#filtered_files[@]} -gt 0 ]] && files_to_apply=("${filtered_files[@]}")
+  fi
+
+  # Apply files
+  if [[ ${#files_to_apply[@]} -gt 0 ]]; then
+    apply_list "$platform" "${files_to_apply[@]}"
+  fi
 }
 
 collect_list() {
@@ -345,7 +475,8 @@ pull_usb() {
     fi
     local dest="$HOME/$dir"
     if [[ -d "$dest" ]]; then
-      local backup="${dest}.bak.$(date +%Y%m%d%H%M%S)"
+      local backup
+      backup="${dest}.bak.$(date +%Y%m%d%H%M%S)"
       cp -a "$dest" "$backup"
       echo "Backed up $dest -> $backup"
     fi
@@ -366,9 +497,10 @@ pull_usb() {
 }
 
 cmd="${1:-}"
+category="${2:-}"
 case "$cmd" in
-  collect) collect_dotfiles ;;
-  apply) apply_dotfiles ;;
+  collect) collect_dotfiles "$category" ;;
+  apply) apply_dotfiles "$category" ;;
   stage-usb) stage_usb ;;
   push-usb) push_usb ;;
   pull-usb) pull_usb ;;
